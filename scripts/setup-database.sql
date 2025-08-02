@@ -1,4 +1,4 @@
--- Enable the UUID extension
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create users table (extends Supabase auth.users)
@@ -71,18 +71,3 @@ CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON public.user_progress(use
 CREATE INDEX IF NOT EXISTS idx_user_progress_subject ON public.user_progress(subject);
 CREATE INDEX IF NOT EXISTS idx_quiz_results_user_id ON public.quiz_results(user_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_results_subject ON public.quiz_results(subject);
-
--- Create a function to automatically create user profile
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.users (id, email, name)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', 'User'));
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create trigger to automatically create user profile
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

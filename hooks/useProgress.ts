@@ -20,7 +20,11 @@ export function useProgress() {
     if (!user) return
 
     try {
-      const { data, error } = await supabase.from("user_progress").select("*").eq("user_id", user.id)
+      const { data, error } = await supabase
+        .from("user_progress")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
 
       if (error) throw error
       setProgress(data || [])
@@ -35,26 +39,19 @@ export function useProgress() {
     if (!user) return
 
     try {
-      const { data, error } = await supabase
-        .from("user_progress")
-        .upsert({
-          user_id: user.id,
-          subject,
-          lesson,
-          completed,
-          score,
-          completed_at: completed ? new Date().toISOString() : null,
-        })
-        .select()
+      const { error } = await supabase.from("user_progress").upsert({
+        user_id: user.id,
+        subject,
+        lesson,
+        completed,
+        score,
+        completed_at: completed ? new Date().toISOString() : null,
+      })
 
       if (error) throw error
-
-      // Refresh progress
-      await fetchProgress()
-      return { data, error: null }
+      await fetchProgress() // Refresh progress
     } catch (error) {
       console.error("Error updating progress:", error)
-      return { data: null, error }
     }
   }
 
@@ -66,19 +63,12 @@ export function useProgress() {
     return progress.find((p) => p.subject === subject && p.lesson === lesson)
   }
 
-  const getOverallProgress = () => {
-    const completed = progress.filter((p) => p.completed).length
-    const total = progress.length
-    return total > 0 ? Math.round((completed / total) * 100) : 0
-  }
-
   return {
     progress,
     loading,
     updateProgress,
     getSubjectProgress,
     getLessonProgress,
-    getOverallProgress,
     refetch: fetchProgress,
   }
 }

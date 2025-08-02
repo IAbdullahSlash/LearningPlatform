@@ -8,8 +8,8 @@ import { Toaster } from "@/components/ui/sonner"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SmartPath - Personalized Learning Platform",
-  description: "AI-powered learning platform for students",
+  title: "SmartPath Learning Platform",
+  description: "Personalized learning platform with AI tutoring",
     generator: 'v0.dev'
 }
 

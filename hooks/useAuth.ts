@@ -10,15 +10,10 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setLoading(false)
-    }
-
-    getSession()
+    })
 
     // Listen for auth changes
     const {
@@ -26,6 +21,19 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // Create user profile on signup
+      if (event === "SIGNED_IN" && session?.user) {
+        const { error } = await supabase.from("users").upsert({
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.name || session.user.email!.split("@")[0],
+        })
+
+        if (error) {
+          console.error("Error creating user profile:", error)
+        }
+      }
     })
 
     return () => subscription.unsubscribe()

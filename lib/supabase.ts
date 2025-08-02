@@ -6,14 +6,14 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Types for our database
-export interface User {
+export type User = {
   id: string
   email: string
   name: string
   created_at: string
 }
 
-export interface UserProgress {
+export type UserProgress = {
   id: string
   user_id: string
   subject: string
@@ -24,7 +24,7 @@ export interface UserProgress {
   created_at: string
 }
 
-export interface QuizResult {
+export type QuizResult = {
   id: string
   user_id: string
   subject: string
