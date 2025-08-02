@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -11,14 +11,23 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { useProgress } from "@/hooks/useProgress"
 import { useQuizResults } from "@/hooks/useQuizResults"
 import { useAuth } from "@/hooks/useAuth"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const { progress, loading: progressLoading } = useProgress()
-  const { results, loading: resultsLoading } = useQuizResults()
+  const { user, loading: authLoading } = useAuth()
+  const { progress, loading: progressLoading, error: progressError } = useProgress()
+  const { results, loading: resultsLoading, error: resultsError } = useQuizResults()
+  const router = useRouter()
 
   const [studyStreak, setStudyStreak] = useState(12)
   const [hoursToday, setHoursToday] = useState(2.5)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login")
+    }
+  }, [user, authLoading, router])
 
   const subjects = [
     { id: "physics", name: "Physics", color: "bg-blue-500" },
@@ -96,15 +105,40 @@ export default function DashboardPage() {
       .slice(0, 3)
   }
 
-  if (progressLoading || resultsLoading) {
+  // Show loading state
+  if (authLoading || progressLoading || resultsLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader />
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center">Loading your progress...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>Loading your progress...</p>
+          </div>
         </div>
       </div>
     )
+  }
+
+  // Show error state
+  if (progressError || resultsError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardHeader />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">Error loading dashboard data</p>
+            <p className="text-sm text-gray-600 mb-4">{progressError || resultsError}</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null
   }
 
   const recentActivity = getRecentActivity()
@@ -119,7 +153,7 @@ export default function DashboardPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name || "Student"}! 👋</h1>
+          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.user_metadata?.name || "Student"}! 👋</h1>
           <p className="text-gray-600">Ready to continue your learning journey? Let's make today count!</p>
         </div>
 

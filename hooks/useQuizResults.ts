@@ -9,27 +9,41 @@ export function useQuizResults() {
   const { user } = useAuth()
   const [results, setResults] = useState<QuizResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchResults()
+    } else {
+      setLoading(false)
     }
   }, [user])
 
   const fetchResults = async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     try {
-      const { data, error } = await supabase
+      setError(null)
+      const { data, error: fetchError } = await supabase
         .from("quiz_results")
         .select("*")
         .eq("user_id", user.id)
         .order("completed_at", { ascending: false })
 
-      if (error) throw error
-      setResults(data || [])
+      if (fetchError) {
+        console.error("Error fetching quiz results:", fetchError)
+        setError("Failed to load quiz results")
+        setResults([])
+      } else {
+        setResults(data || [])
+      }
     } catch (error) {
       console.error("Error fetching quiz results:", error)
+      setError("Failed to load quiz results")
+      setResults([])
     } finally {
       setLoading(false)
     }
@@ -42,7 +56,7 @@ export function useQuizResults() {
     totalQuestions: number,
     answers: any[],
   ) => {
-    if (!user) return
+    if (!user) return { error: "Not authenticated" }
 
     try {
       const { error } = await supabase.from("quiz_results").insert({
@@ -52,29 +66,27 @@ export function useQuizResults() {
         score,
         total_questions: totalQuestions,
         answers,
+        completed_at: new Date().toISOString(),
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Error saving quiz result:", error)
+        return { error }
+      }
+
       await fetchResults() // Refresh results
+      return { error: null }
     } catch (error) {
       console.error("Error saving quiz result:", error)
+      return { error }
     }
-  }
-
-  const getSubjectResults = (subject: string) => {
-    return results.filter((r) => r.subject === subject)
-  }
-
-  const getLessonResults = (subject: string, lesson: string) => {
-    return results.filter((r) => r.subject === subject && r.lesson === lesson)
   }
 
   return {
     results,
     loading,
+    error,
     saveQuizResult,
-    getSubjectResults,
-    getLessonResults,
     refetch: fetchResults,
   }
 }
