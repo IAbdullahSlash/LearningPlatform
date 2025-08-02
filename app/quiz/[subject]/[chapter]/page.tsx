@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Clock, ArrowLeft, CheckCircle, XCircle, Trophy, RotateCcw } from "lucide-react"
 import Link from "next/link"
 import { DashboardHeader } from "@/components/dashboard-header"
+import { useQuizResults } from "@/hooks/useQuizResults"
+import { useProgress } from "@/hooks/useProgress"
 
 export default function QuizPage({ params }: { params: { subject: string; chapter: string } }) {
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -18,6 +20,9 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
   const [showResults, setShowResults] = useState(false)
   const [timeLeft, setTimeLeft] = useState(600) // 10 minutes
   const [quizStarted, setQuizStarted] = useState(false)
+
+  const { saveQuizResult } = useQuizResults()
+  const { updateProgress } = useProgress()
 
   const questions = [
     {
@@ -78,6 +83,7 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
     setAnswers([])
     setShowResults(false)
     setTimeLeft(600)
+    setSelectedAnswer("")
   }
 
   const handleAnswerSelect = (value: string) => {
@@ -97,12 +103,42 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
     }
   }
 
-  const handleSubmitQuiz = () => {
+  const handleSubmitQuiz = async () => {
     const finalAnswers = [...answers]
     if (selectedAnswer) {
       finalAnswers[currentQuestion] = selectedAnswer
     }
     setAnswers(finalAnswers)
+
+    // Calculate score
+    let correctCount = 0
+    finalAnswers.forEach((answer, index) => {
+      if (Number.parseInt(answer) === questions[index].correct) {
+        correctCount++
+      }
+    })
+
+    const score = correctCount
+    const percentage = Math.round((score / questions.length) * 100)
+
+    // Save quiz result to database
+    await saveQuizResult(
+      params.subject,
+      params.chapter,
+      score,
+      questions.length,
+      finalAnswers.map((answer, index) => ({
+        questionId: questions[index].id,
+        selectedAnswer: Number.parseInt(answer),
+        correctAnswer: questions[index].correct,
+        isCorrect: Number.parseInt(answer) === questions[index].correct,
+      })),
+    )
+
+    // Update progress - mark as completed if score >= 70%
+    const passed = percentage >= 70
+    await updateProgress(params.subject, params.chapter, passed, score)
+
     setShowResults(true)
   }
 
@@ -140,8 +176,12 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
 
             <Card>
               <CardHeader className="text-center">
-                <CardTitle className="text-2xl">Wave Optics Quiz</CardTitle>
-                <CardDescription>Test your understanding of wave optics concepts</CardDescription>
+                <CardTitle className="text-2xl">
+                  {params.chapter.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Quiz
+                </CardTitle>
+                <CardDescription>
+                  Test your understanding of {params.chapter.replace(/-/g, " ")} concepts
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -154,7 +194,7 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
                     <div className="text-sm text-gray-600">Minutes</div>
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">80%</div>
+                    <div className="text-2xl font-bold text-purple-600">70%</div>
                     <div className="text-sm text-gray-600">Pass Mark</div>
                   </div>
                 </div>
@@ -164,7 +204,8 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
                   <ul className="space-y-2 text-sm text-gray-600">
                     <li>You have 10 minutes to complete the quiz</li>
                     <li>Each question has only one correct answer</li>
-                    <li>You can review your answers at the end</li>
+                    <li>You need 70% to pass and complete this chapter</li>
+                    <li>Your progress will be saved automatically</li>
                     <li>Click "Start Quiz" when you're ready</li>
                   </ul>
                 </div>
@@ -183,7 +224,7 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
   if (showResults) {
     const score = calculateScore()
     const percentage = Math.round((score / questions.length) * 100)
-    const passed = percentage >= 80
+    const passed = percentage >= 70
 
     return (
       <div className="min-h-screen bg-gray-50">
@@ -204,9 +245,12 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
                     <RotateCcw className="w-8 h-8 text-red-600" />
                   )}
                 </div>
-                <CardTitle className="text-2xl">{passed ? "Congratulations!" : "Keep Learning!"}</CardTitle>
+                <CardTitle className="text-2xl">
+                  {passed ? "Congratulations! Chapter Completed!" : "Keep Learning!"}
+                </CardTitle>
                 <CardDescription>
                   You scored {score} out of {questions.length} questions ({percentage}%)
+                  {passed ? " - Your progress has been saved!" : " - Try again to complete this chapter"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -293,9 +337,14 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
 
                 <div className="flex justify-center space-x-4 mt-8">
                   <Link href={`/subjects/${params.subject}`}>
-                    <Button variant="outline">Back to Chapter</Button>
+                    <Button variant="outline">Back to Subject</Button>
                   </Link>
-                  <Button onClick={startQuiz}>Retake Quiz</Button>
+                  {!passed && <Button onClick={startQuiz}>Retake Quiz</Button>}
+                  {passed && (
+                    <Link href="/dashboard">
+                      <Button>Continue Learning</Button>
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -314,7 +363,9 @@ export default function QuizPage({ params }: { params: { subject: string; chapte
           {/* Quiz Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold">Wave Optics Quiz</h1>
+              <h1 className="text-2xl font-bold">
+                {params.chapter.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Quiz
+              </h1>
               <p className="text-gray-600">
                 Question {currentQuestion + 1} of {questions.length}
               </p>
