@@ -1,380 +1,221 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Brain, Trophy, Clock, Target, TrendingUp, MessageCircle, Play, FileText } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { BookOpen, Trophy, HelpCircle, LogOut, Clock, Target, Star } from "lucide-react"
 import Link from "next/link"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { useProgress } from "@/hooks/useProgress"
-import { useQuizResults } from "@/hooks/useQuizResults"
-import { useAuth } from "@/hooks/useAuth"
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+
+const lessons = [
+  {
+    id: "newtons-laws",
+    title: "Newton's Laws of Motion",
+    description: "Fundamental principles of classical mechanics",
+    difficulty: "Beginner",
+    duration: "45 min",
+    progress: 0,
+    color: "bg-blue-500",
+  },
+  {
+    id: "wave-optics",
+    title: "Wave Optics",
+    description: "Understanding light as waves and interference",
+    difficulty: "Intermediate",
+    duration: "60 min",
+    progress: 0,
+    color: "bg-purple-500",
+  },
+  {
+    id: "electromagnetic-induction",
+    title: "Electromagnetic Induction",
+    description: "Faraday's law and electromagnetic phenomena",
+    difficulty: "Advanced",
+    duration: "75 min",
+    progress: 0,
+    color: "bg-green-500",
+  },
+]
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth()
-  const { progress, loading: progressLoading, error: progressError } = useProgress()
-  const { results, loading: resultsLoading, error: resultsError } = useQuizResults()
+  const { user, loading, signOut } = useAuth()
   const router = useRouter()
 
-  const [studyStreak, setStudyStreak] = useState(12)
-  const [hoursToday, setHoursToday] = useState(2.5)
-
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       router.push("/login")
     }
-  }, [user, authLoading, router])
+  }, [user, loading, router])
 
-  const subjects = [
-    { id: "physics", name: "Physics", color: "bg-blue-500" },
-    { id: "mathematics", name: "Mathematics", color: "bg-purple-500" },
-  ]
-
-  // Calculate real progress from database
-  const getSubjectProgress = (subjectId: string) => {
-    const subjectProgress = progress.filter((p) => p.subject === subjectId)
-    if (subjectProgress.length === 0) return 0
-
-    const completed = subjectProgress.filter((p) => p.completed).length
-    return Math.round((completed / subjectProgress.length) * 100)
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/")
   }
 
-  // Calculate overall progress
-  const getOverallProgress = () => {
-    if (progress.length === 0) return 0
-    const completed = progress.filter((p) => p.completed).length
-    return Math.round((completed / progress.length) * 100)
-  }
-
-  // Calculate quiz average
-  const getQuizAverage = () => {
-    if (results.length === 0) return 0
-    const totalScore = results.reduce((sum, result) => sum + result.score, 0)
-    const totalQuestions = results.reduce((sum, result) => sum + result.total_questions, 0)
-    return totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0
-  }
-
-  // Get recent activity from database
-  const getRecentActivity = () => {
-    const recentResults = results.slice(0, 3).map((result) => ({
-      subject: result.subject.charAt(0).toUpperCase() + result.subject.slice(1),
-      topic: result.lesson.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-      type: "quiz" as const,
-      score: Math.round((result.score / result.total_questions) * 100),
-      time: new Date(result.completed_at).toLocaleDateString(),
-    }))
-
-    const recentProgress = progress
-      .filter((p) => p.completed && p.completed_at)
-      .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
-      .slice(0, 3 - recentResults.length)
-      .map((p) => ({
-        subject: p.subject.charAt(0).toUpperCase() + p.subject.slice(1),
-        topic: p.lesson.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-        type: "lesson" as const,
-        time: new Date(p.completed_at!).toLocaleDateString(),
-      }))
-
-    return [...recentResults, ...recentProgress].slice(0, 3)
-  }
-
-  // Get weak areas based on quiz performance
-  const getWeakAreas = () => {
-    const subjectScores: { [key: string]: number[] } = {}
-
-    results.forEach((result) => {
-      const percentage = Math.round((result.score / result.total_questions) * 100)
-      if (!subjectScores[result.subject]) {
-        subjectScores[result.subject] = []
-      }
-      subjectScores[result.subject].push(percentage)
-    })
-
-    return Object.entries(subjectScores)
-      .map(([subject, scores]) => ({
-        subject: subject.charAt(0).toUpperCase() + subject.slice(1),
-        topic: "Recent Quizzes",
-        accuracy: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length),
-      }))
-      .filter((area) => area.accuracy < 80)
-      .sort((a, b) => a.accuracy - b.accuracy)
-      .slice(0, 3)
-  }
-
-  // Show loading state
-  if (authLoading || progressLoading || resultsLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading your progress...</p>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
-  // Show error state
-  if (progressError || resultsError) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">Error loading dashboard data</p>
-            <p className="text-sm text-gray-600 mb-4">{progressError || resultsError}</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Don't render if not authenticated
   if (!user) {
     return null
   }
 
-  const recentActivity = getRecentActivity()
-  const weakAreas = getWeakAreas()
-  const overallProgress = getOverallProgress()
-  const quizAverage = getQuizAverage()
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <Badge variant="secondary">Physics - Phase 1</Badge>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">Welcome, {user.displayName || user.email}</span>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.user_metadata?.name || "Student"}! 👋</h1>
-          <p className="text-gray-600">Ready to continue your learning journey? Let's make today count!</p>
-        </div>
-
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Study Streak</p>
-                  <p className="text-2xl font-bold">{studyStreak} days</p>
-                </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Trophy className="w-6 h-6 text-orange-600" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lessons Available</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">3</div>
+              <p className="text-xs text-muted-foreground">Physics fundamentals</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Hours Today</p>
-                  <p className="text-2xl font-bold">{hoursToday}h</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Quizzes Ready</CardTitle>
+              <Trophy className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">3</div>
+              <p className="text-xs text-muted-foreground">Test your knowledge</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Overall Progress</p>
-                  <p className="text-2xl font-bold">{overallProgress}%</p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Target className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Quiz Average</p>
-                  <p className="text-2xl font-bold">{quizAverage}%</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Q&A Available</CardTitle>
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">15+</div>
+              <p className="text-xs text-muted-foreground">Predefined answers</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Subject Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Subjects</CardTitle>
-                <CardDescription>Track your progress across all subjects</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {subjects.map((subject) => {
-                    const subjectProgress = getSubjectProgress(subject.id)
-                    return (
-                      <div
-                        key={subject.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-3 h-3 rounded-full ${subject.color}`} />
-                          <div>
-                            <h3 className="font-medium">{subject.name}</h3>
-                            <p className="text-sm text-gray-600">{subjectProgress}% complete</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <Progress value={subjectProgress} className="w-24" />
-                          <Link href={`/subjects/${subject.id}`}>
-                            <Button size="sm">Continue</Button>
-                          </Link>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your latest learning sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentActivity.length > 0 ? (
-                    recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            {activity.type === "quiz" && <FileText className="w-5 h-5 text-blue-600" />}
-                            {activity.type === "lesson" && <Play className="w-5 h-5 text-blue-600" />}
-                          </div>
-                          <div>
-                            <h3 className="font-medium">
-                              {activity.subject} - {activity.topic}
-                            </h3>
-                            <p className="text-sm text-gray-600 capitalize">
-                              {activity.type} • {activity.time}
-                            </p>
-                          </div>
-                        </div>
-                        {activity.score && (
-                          <Badge
-                            variant={
-                              activity.score >= 80 ? "default" : activity.score >= 60 ? "secondary" : "destructive"
-                            }
-                          >
-                            {activity.score}%
-                          </Badge>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No recent activity yet. Start learning to see your progress here!</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* AI Tutor Quick Access */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Brain className="w-5 h-5" />
-                  <span>AI Tutor</span>
-                </CardTitle>
-                <CardDescription>Get instant help with your studies</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/tutor">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Ask AI Tutor
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Weak Areas */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Areas to Improve</CardTitle>
-                <CardDescription>Focus on these topics to boost your performance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {weakAreas.length > 0 ? (
-                    weakAreas.map((area, index) => (
-                      <div key={index} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-sm">{area.subject}</h4>
-                          <Badge variant="outline" className="text-xs">
-                            {area.accuracy}%
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{area.topic}</p>
-                        <Link href={`/subjects/${area.subject.toLowerCase()}`}>
-                          <Button size="sm" variant="outline" className="w-full bg-transparent">
-                            Practice Now
-                          </Button>
-                        </Link>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <p className="text-sm">Great job! No weak areas detected.</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Daily Goal */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Today's Goal</CardTitle>
-                <CardDescription>Complete 3 hours of study</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progress</span>
-                    <span>{hoursToday} / 3.0 hours</span>
+        {/* Available Lessons */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Available Lessons</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {lessons.map((lesson) => (
+              <Card key={lesson.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className={`w-3 h-3 rounded-full ${lesson.color}`}></div>
+                    <Badge
+                      variant={
+                        lesson.difficulty === "Beginner"
+                          ? "default"
+                          : lesson.difficulty === "Intermediate"
+                            ? "secondary"
+                            : "destructive"
+                      }
+                    >
+                      {lesson.difficulty}
+                    </Badge>
                   </div>
-                  <Progress value={(hoursToday / 3) * 100} />
-                  <p className="text-xs text-gray-600">
-                    {hoursToday >= 3 ? "🎉 Goal completed! Great work!" : `${(3 - hoursToday).toFixed(1)} hours to go.`}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  <CardTitle className="text-lg">{lesson.title}</CardTitle>
+                  <CardDescription>{lesson.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {lesson.duration}
+                      </div>
+                      <div className="flex items-center">
+                        <Target className="w-4 h-4 mr-1" />
+                        {lesson.progress}% Complete
+                      </div>
+                    </div>
+                    <Progress value={lesson.progress} className="h-2" />
+                    <div className="flex space-x-2">
+                      <Link href={`/lessons/${lesson.id}`} className="flex-1">
+                        <Button className="w-full" size="sm">
+                          <BookOpen className="w-4 h-4 mr-2" />
+                          Start Lesson
+                        </Button>
+                      </Link>
+                      <Link href={`/quiz/${lesson.id}`}>
+                        <Button variant="outline" size="sm">
+                          <Trophy className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <HelpCircle className="w-5 h-5 mr-2" />
+                Q&A Helper
+              </CardTitle>
+              <CardDescription>Get instant answers to common Physics questions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/qa">
+                <Button className="w-full">Browse Questions</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Star className="w-5 h-5 mr-2" />
+                Your Progress
+              </CardTitle>
+              <CardDescription>Track your learning journey and achievements</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Overall Progress</span>
+                  <span>0%</span>
+                </div>
+                <Progress value={0} className="h-2" />
+                <p className="text-xs text-gray-600 mt-2">Complete lessons and quizzes to track your progress</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

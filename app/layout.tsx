@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "SmartPath Learning Platform",
-  description: "AI-powered learning platform for students",
+  description: "AI-powered learning platform for Physics - Phase 1",
     generator: 'v0.dev'
 }
 
