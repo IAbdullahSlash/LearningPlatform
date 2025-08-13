@@ -2,13 +2,18 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SmartPath - Physics Learning Platform",
-  description: "Master physics concepts through interactive lessons and quizzes",
-    generator: 'v0.dev'
+  title: "SmartPath Learning Platform",
+  description: "Personalized learning platform for Class 12 Science students",
+  keywords: ["learning", "education", "physics", "class 12", "science"],
+  authors: [{ name: "SmartPath Team" }],
+  viewport: "width=device-width, initial-scale=1",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -17,8 +22,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster />
+        </ThemeProvider>
+      </body>
     </html>
   )
 }
